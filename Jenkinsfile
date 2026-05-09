@@ -31,18 +31,23 @@ pipeline {
     //     }
     //   }
     // }
-    stage("Build"){
+    stage("Build Jar file"){
       steps{
         script{
-          buildStep()
+          buildJar()
         }
       }
     }
-    stage("Test"){
+    stage("Build Image"){
       steps{
         script{
-          testStep()
+          buildImage()
         }
+      }
+    }
+    stage("Deploy"){
+      steps{
+        echo "deploy the app..."
       }
     }
   }
