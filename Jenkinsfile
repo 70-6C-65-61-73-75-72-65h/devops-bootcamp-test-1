@@ -44,7 +44,7 @@ pipeline {
     stage("Build Image"){
       steps{
         script{
-          buildImage()
+          buildImage("myprojectsthebest/devops-bootcamp-demo:jmaic-1.1")
         }
       }
     }
