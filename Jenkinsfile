@@ -1,20 +1,22 @@
+@Library('jenkins-shared-library-1')_
+
 pipeline {
   agent any
   stages{
-    stage("CHECK"){
-      steps{
-        echo "is primary branch? - ${env.BRANCH_IS_PRIMARY}"
-        echo "BRANCH_NAME: ${env.BRANCH_NAME}"
-        echo "GIT_BRANCH: ${env.GIT_BRANCH}"
-        echo "BUILD_NUMBER: ${env.BUILD_NUMBER}"
-        echo "BUILD_ID: ${env.BUILD_ID}"
-        echo "BUILD_TAG: ${env.BUILD_TAG}"
-        echo "EXECUTOR_NUMBER: ${env.EXECUTOR_NUMBER}"
-        echo "NODE_NAME: ${env.NODE_NAME}"
-        echo "GIT_COMMITTER_NAME: ${env.GIT_COMMITTER_NAME}"
-        echo "CHANGE_ID: ${env.CHANGE_ID}"
-      }
-    }
+    // stage("CHECK"){
+    //   steps{
+    //     echo "is primary branch? - ${env.BRANCH_IS_PRIMARY}"
+    //     echo "BRANCH_NAME: ${env.BRANCH_NAME}"
+    //     echo "GIT_BRANCH: ${env.GIT_BRANCH}"
+    //     echo "BUILD_NUMBER: ${env.BUILD_NUMBER}"
+    //     echo "BUILD_ID: ${env.BUILD_ID}"
+    //     echo "BUILD_TAG: ${env.BUILD_TAG}"
+    //     echo "EXECUTOR_NUMBER: ${env.EXECUTOR_NUMBER}"
+    //     echo "NODE_NAME: ${env.NODE_NAME}"
+    //     echo "GIT_COMMITTER_NAME: ${env.GIT_COMMITTER_NAME}"
+    //     echo "CHANGE_ID: ${env.CHANGE_ID}"
+    //   }
+    // }
     // stage("TEST"){
     //   input {
     //     message "Choose env to deploy it:"
@@ -29,5 +31,19 @@ pipeline {
     //     }
     //   }
     // }
+    stage("Build"){
+      steps{
+        script{
+          buildStep()
+        }
+      }
+    }
+    stage("Test"){
+      steps{
+        script{
+          testStep()
+        }
+      }
+    }
   }
 }
