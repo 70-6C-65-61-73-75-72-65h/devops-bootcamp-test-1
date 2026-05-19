@@ -1,0 +1,320 @@
+pipeline {
+  agent {
+    label 'buildkit && maven && docker-security'
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    timeout(time: 45, unit: 'MINUTES')
+  }
+
+  environment {
+    BUILDKIT_HOST = 'tcp://buildkit:1234'
+
+    // поменяй под свой registry
+    REGISTRY = 'docker.io'
+    IMAGE_REPO = 'docker.io/YOUR_DOCKERHUB_USER/YOUR_IMAGE'
+
+    REPORT_DIR = 'security-reports'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+
+        sh '''
+          set -eux
+          mkdir -p "$REPORT_DIR"
+          git rev-parse --short=12 HEAD > .git-short-sha
+        '''
+
+        script {
+          def shortSha = readFile('.git-short-sha').trim()
+          env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortSha}"
+          env.IMAGE = "${env.IMAGE_REPO}:${env.IMAGE_TAG}"
+        }
+      }
+    }
+
+    stage('Tool sanity check') {
+      steps {
+        sh '''
+          set -eux
+          java -version
+          mvn -version
+          buildctl --addr "$BUILDKIT_HOST" debug workers
+          syft version
+          grype version
+          trivy --version
+          gitleaks version
+          semgrep --version
+          osv-scanner --version
+          hadolint --version
+        '''
+      }
+    }
+
+    stage('Secrets scan') {
+      steps {
+        sh '''
+          set -eux
+
+          gitleaks dir . \
+            --no-banner \
+            --redact \
+            --report-format json \
+            --report-path "$REPORT_DIR/gitleaks-dir.json"
+        '''
+      }
+    }
+
+    stage('Dockerfile lint') {
+      steps {
+        sh '''
+          set -eux
+
+          if [ -f Dockerfile ]; then
+            hadolint Dockerfile | tee "$REPORT_DIR/hadolint.txt"
+          else
+            echo "Dockerfile not found, skipping hadolint" | tee "$REPORT_DIR/hadolint.txt"
+          fi
+        '''
+      }
+    }
+
+    stage('SAST - Semgrep') {
+      steps {
+        sh '''
+          set -eux
+
+          semgrep scan \
+            --metrics=off \
+            --config=p/java \
+            --config=p/owasp-top-ten \
+            --sarif \
+            --output "$REPORT_DIR/semgrep.sarif" \
+            --error .
+        '''
+      }
+    }
+
+    stage('Maven test + package') {
+      steps {
+        sh '''
+          set -eux
+
+          mvn -B -ntp clean verify
+        '''
+      }
+
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml'
+          archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('Maven dependency SBOM') {
+      steps {
+        sh '''
+          set -eux
+
+          mvn -B -ntp org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom \
+            -DoutputFormat=json \
+            -DoutputName=maven-sbom
+
+          cp target/maven-sbom.json "$REPORT_DIR/maven-sbom.cdx.json"
+        '''
+      }
+    }
+
+    stage('Maven dependency scan') {
+      steps {
+        sh '''
+          set -eux
+
+          # OSV scan по source/dependency manifests
+          osv-scanner scan source \
+            --recursive \
+            --format=json \
+            --output="$REPORT_DIR/osv-source.json" \
+            .
+
+          # Grype scan по Maven CycloneDX SBOM
+          grype sbom:"$REPORT_DIR/maven-sbom.cdx.json" \
+            -o json > "$REPORT_DIR/grype-maven-sbom.json"
+
+          # Gate: HIGH/CRITICAL ломают билд
+          grype sbom:"$REPORT_DIR/maven-sbom.cdx.json" \
+            --fail-on high
+        '''
+      }
+    }
+
+    stage('OWASP Dependency-Check') {
+      steps {
+        sh '''
+          set -eux
+
+          mvn -B -ntp org.owasp:dependency-check-maven:check \
+            -Dformat=ALL \
+            -DfailBuildOnCVSS=9 \
+            -DoutputDirectory="$REPORT_DIR/dependency-check"
+        '''
+      }
+    }
+
+    stage('Build and push image with BuildKit') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'registry-push-creds',
+            usernameVariable: 'REGISTRY_USER',
+            passwordVariable: 'REGISTRY_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export DOCKER_CONFIG="$WORKSPACE/.docker-ci"
+            rm -rf "$DOCKER_CONFIG"
+            mkdir -p "$DOCKER_CONFIG"
+
+            set +x
+            AUTH="$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_PASSWORD" | base64 | tr -d '\\n')"
+            cat > "$DOCKER_CONFIG/config.json" <<EOF
+{
+  "auths": {
+    "$REGISTRY": {
+      "auth": "$AUTH"
+    }
+  }
+}
+EOF
+            set -x
+
+            buildctl --addr "$BUILDKIT_HOST" build \
+              --frontend dockerfile.v0 \
+              --local context=. \
+              --local dockerfile=. \
+              --output type=image,name="$IMAGE",push=true
+
+            rm -rf "$DOCKER_CONFIG"
+          '''
+        }
+      }
+    }
+
+    stage('Image SBOM - Syft') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'registry-push-creds',
+            usernameVariable: 'REGISTRY_USER',
+            passwordVariable: 'REGISTRY_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export SYFT_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+            export SYFT_REGISTRY_AUTH_USERNAME="$REGISTRY_USER"
+            export SYFT_REGISTRY_AUTH_PASSWORD="$REGISTRY_PASSWORD"
+
+            syft "$IMAGE" \
+              -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
+              -o spdx-json="$REPORT_DIR/image-sbom.spdx.json"
+          '''
+        }
+      }
+    }
+
+    stage('Image vulnerability scan - Grype') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'registry-push-creds',
+            usernameVariable: 'REGISTRY_USER',
+            passwordVariable: 'REGISTRY_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export GRYPE_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+            export GRYPE_REGISTRY_AUTH_USERNAME="$REGISTRY_USER"
+            export GRYPE_REGISTRY_AUTH_PASSWORD="$REGISTRY_PASSWORD"
+
+            grype sbom:"$REPORT_DIR/image-sbom.cdx.json" \
+              -o json > "$REPORT_DIR/grype-image.json"
+
+            grype sbom:"$REPORT_DIR/image-sbom.cdx.json" \
+              --fail-on high
+          '''
+        }
+      }
+    }
+
+    stage('Image scan - Trivy') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'registry-push-creds',
+            usernameVariable: 'REGISTRY_USER',
+            passwordVariable: 'REGISTRY_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export TRIVY_USERNAME="$REGISTRY_USER"
+            export TRIVY_PASSWORD="$REGISTRY_PASSWORD"
+
+            trivy image \
+              --image-src registry \
+              --scanners vuln,secret,misconfig,license \
+              --image-config-scanners misconfig,secret \
+              --format json \
+              --output "$REPORT_DIR/trivy-image.json" \
+              "$IMAGE"
+
+            trivy image \
+              --image-src registry \a
+              --scanners vuln,secret,misconfig \
+              --image-config-scanners misconfig,secret \
+              --severity HIGH,CRITICAL \
+              --exit-code 1 \
+              "$IMAGE"
+          '''
+        }
+      }
+    }
+
+    stage('Image scan - OSV') {
+      steps {
+        sh '''
+          set -eux
+
+          osv-scanner scan image \
+            --format=json \
+            --output="$REPORT_DIR/osv-image.json" \
+            "$IMAGE"
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'security-reports/**/*', allowEmptyArchive: true
+    }
+
+    success {
+      echo "Image built and scanned: ${IMAGE}"
+    }
+  }
+}
