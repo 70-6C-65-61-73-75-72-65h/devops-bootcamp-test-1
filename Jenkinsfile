@@ -206,8 +206,8 @@ pipeline {
             usernameVariable:'NEXUS_USER',
             passwordVariable: 'NEXUS_PASSWORD')]){
           sh '''
-            set -euox pipefail
- 
+            #set -euox pipefail
+            set -x
             export DOCKER_CONFIG="$(mktemp -d)"
 
             cleanup(){
@@ -221,9 +221,10 @@ pipeline {
             umask 077
             mkdir -p "$DOCKER_CONFIG"
 
-            set +x
+            # set +x
             AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
-            cat> "$DOCKER_CONFIG/config.json" <<EOF
+
+            cat> "$DOCKER_CONFIG/config.json" <<'EOF'
             {
               "auths": {
                 "$REGISTRY": {
@@ -231,8 +232,9 @@ pipeline {
                 }
               }
             }
-            EOF
-            set -x
+            'EOF'
+
+            # set -x
 
             buildctl --addr "$BUILDKIT_HOST" --debug build \
               --frontend dockerfile.v0 \
