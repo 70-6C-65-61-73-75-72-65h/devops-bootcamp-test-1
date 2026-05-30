@@ -177,34 +177,34 @@ pipeline {
             passwordVariable: 'REGISTRY_PASSWORD'
           )
         ]) {
-          sh '''
+          sh """
             set -eux
 
-            export DOCKER_CONFIG="$WORKSPACE/.docker-ci"
-            rm -rf "$DOCKER_CONFIG"
-            mkdir -p "$DOCKER_CONFIG"
+            export DOCKER_CONFIG=\"$WORKSPACE/.docker-ci\"
+            rm -rf \"$DOCKER_CONFIG\"
+            mkdir -p \"$DOCKER_CONFIG\"
 
             set +x
-            AUTH="$(printf '%s:%s' "$REGISTRY_USER" "$REGISTRY_PASSWORD" | base64 | tr -d '\\n')"
-            cat > "$DOCKER_CONFIG/config.json" <<EOF
-{
-  "auths": {
-    "$REGISTRY": {
-      "auth": "$AUTH"
-    }
-  }
-}
-EOF
+            AUTH=\"$(printf '%s:%s' \"$REGISTRY_USER\" \"$REGISTRY_PASSWORD\" | base64 | tr -d '\\n')\"
+            cat > \"$DOCKER_CONFIG/config.json\" <<EOF 
+            {
+              \"auths\": {
+                \"$REGISTRY\": {
+                  \"auth\": \"$AUTH\"
+                }
+              }
+            }
+            EOF
             set -x
 
-            buildctl --addr "$BUILDKIT_HOST" build \
+            buildctl --addr \"$BUILDKIT_HOST\" build \
               --frontend dockerfile.v0 \
               --local context=. \
               --local dockerfile=. \
-              --output type=image,name="$IMAGE",push=true
+              --output type=image,name=\"$IMAGE\",push=true
 
-            rm -rf "$DOCKER_CONFIG"
-          '''
+            rm -rf \"$DOCKER_CONFIG\"
+          """.stripIndent() 
         }
       }
     }
