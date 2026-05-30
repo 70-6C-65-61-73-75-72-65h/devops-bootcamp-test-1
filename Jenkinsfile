@@ -2,7 +2,7 @@
 
 pipeline {
   agent {
-    label: 'buildkit'
+    label 'buildkit'
   }
   options {
     timestamps()
