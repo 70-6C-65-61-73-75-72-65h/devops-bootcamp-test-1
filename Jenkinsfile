@@ -153,7 +153,7 @@ pipeline {
   }
   post {
     always {
-      archiveArtifacts artifacts: "$REPORT_DIR/**/*" allowEmptyArchive: true
+      archiveArtifacts artifacts: "$REPORT_DIR/**/*", allowEmptyArchive: true
     }
     success{
       echo "Image built and scanned: ${env.IMAGE_TAG}"
