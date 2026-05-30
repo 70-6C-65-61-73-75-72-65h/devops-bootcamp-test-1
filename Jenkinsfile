@@ -234,6 +234,9 @@ pipeline {
             }
             EOF
 
+            echo "$DOCKER_CONFIG/config.json"
+            cat "$DOCKER_CONFIG/config.json"
+
             # set -x
 
             echo "buildctl --addr \"$BUILDKIT_HOST\" --debug build \
