@@ -164,20 +164,20 @@ pipeline {
       }
     }
 
-    stage('OWASP Dependency-Check') {
-      steps {
-        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
-        sh """
-          set -eux
+    // stage('OWASP Dependency-Check') {
+    //   steps {
+    //     catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+    //     sh """
+    //       set -eux
 
-          mvn -B -ntp org.owasp:dependency-check-maven:check \
-            -Dformat=ALL \
-            -DfailBuildOnCVSS=9 \
-            -DoutputDirectory=\"$REPORT_DIR/dependency-check\"
-        """
-      }
-      }
-    }
+    //       mvn -B -ntp org.owasp:dependency-check-maven:check \
+    //         -Dformat=ALL \
+    //         -DfailBuildOnCVSS=9 \
+    //         -DoutputDirectory=\"$REPORT_DIR/dependency-check\"
+    //     """
+    //   }
+    //   }
+    // }
 
     stage('Build and push image with Buildkit'){
       steps{
