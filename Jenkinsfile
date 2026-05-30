@@ -116,21 +116,20 @@ pipeline {
     stage('Maven dependency scan') {
       steps {
         sh """
-          set -eux
-           osv-scanner scan source \
+          # OSV scan по source/dependency manifests
+          set -ux
+          osv-scanner scan source \
             --recursive \
             --format=html \
             --output-file=\"$REPORT_DIR/osv-source.html\" \
+            .  
+ 
+          osv-scanner scan source \
+            --recursive \
+            --format=json \
+            --output-file=\"$REPORT_DIR/osv-source.json\" \
             .
-        """
-        // sh """
-        //   # OSV scan по source/dependency manifests
-        //   osv-scanner scan source \
-        //     --recursive \
-        //     --format=json \
-        //     --output-file=\"$REPORT_DIR/osv-source.json\" \
-        //     .
-        //   """
+          """
         sh """
           set -eux
           # Grype scan по Maven CycloneDX SBOM
