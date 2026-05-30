@@ -224,7 +224,7 @@ pipeline {
             # set +x
             AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
 
-            cat> "$DOCKER_CONFIG/config.json" <<'EOF'
+            cat> "$DOCKER_CONFIG/config.json" <<EOF
             {
               "auths": {
                 "$REGISTRY": {
@@ -232,7 +232,7 @@ pipeline {
                 }
               }
             }
-            'EOF'
+            EOF
 
             # set -x
 
@@ -243,7 +243,7 @@ pipeline {
               --progress=plain \
               --output type=image,name=\"$IMAGE\",push=true \
               2>&1 | tee buildkit-push.log"
-              
+
 
             buildctl --addr "$BUILDKIT_HOST" --debug build \
               --frontend dockerfile.v0 \
