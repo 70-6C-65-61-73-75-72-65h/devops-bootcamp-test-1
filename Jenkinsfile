@@ -13,7 +13,7 @@ pipeline {
   environment {
     BUILDKIT_HOST = 'tcp://buildkit:1234'
     REGISTRY = 'nexus:8083'
-    IMAGE_REPO = 'nexus:8083/devops-bootcamp-demo:jmaic-1.0'
+    IMAGE_REPO = 'nexus:8083/devops-bootcamp-demo'
     REPORT_DIR = 'security-reports'
 
   }
@@ -28,7 +28,8 @@ pipeline {
         """
         script {
           def shortSha = readFile('.git-short-sha').trim()
-          env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortSha}" 
+          env.IMAGE_TAG = "jmaic-1.0-${shortSha}" 
+          // env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortSha}" 
           env.IMAGE = "${env.IMAGE_REPO}:${env.IMAGE_TAG}"
           echo "IMAGE: ${env.IMAGE}"
         }
@@ -202,7 +203,7 @@ pipeline {
             umask 077
             mkdir -p "$DOCKER_CONFIG"
 
-            set +x
+            #set +x
             AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
             cat> "$DOCKER_CONFIG/config.json" <<EOF
             {
@@ -213,7 +214,7 @@ pipeline {
               }
             }
             EOF
-            set -x
+            #set -x
 
             buildctl --addr "$BUILDKIT_HOST" build \
               --frontend dockerfile.v0 \
@@ -345,7 +346,7 @@ pipeline {
       sh 'rm -rf "$WORKSPACE/.docker-ci" 2>/dev/null || true'
     }
     success{
-      echo "Image built and scanned: ${env.IMAGE_TAG}"
+      echo "Image built and scanned: ${env.IMAGE}"
     }
   }
 }
