@@ -206,8 +206,8 @@ pipeline {
             usernameVariable:'NEXUS_USER',
             passwordVariable: 'NEXUS_PASSWORD')]){
           sh '''
-            #set -euox pipefail
-            set -x
+            set -euox pipefail
+            
             export DOCKER_CONFIG="$(mktemp -d)"
 
             cleanup(){
@@ -216,37 +216,26 @@ pipeline {
               exit "$rc"
             }
 
-            # trap cleanup EXIT INT TERM HUP
+            trap cleanup EXIT INT TERM HUP
 
             umask 077
             mkdir -p "$DOCKER_CONFIG"
 
-            # set +x
-            AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
+            set +x
 
-            cat> "$DOCKER_CONFIG/config.json" <<EOF
-            {
-              "auths": {
-                "$REGISTRY": {
-                  "auth": "$AUTH"
-                }
-              }
-            }
-            EOF
+            AUTH=$(printf '%s:%s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
 
-            echo "$DOCKER_CONFIG/config.json"
+            jq -n \
+              --arg registry "$REGISTRY" \
+              --arg auth "$AUTH" \
+              '{auths: {($registry): {auth: $auth}}}' \
+              > "$DOCKER_CONFIG/config.json"
+            
+            unset AUTH
+
+            set -x 
+
             cat "$DOCKER_CONFIG/config.json"
-
-            # set -x
-
-            echo "buildctl --addr \"$BUILDKIT_HOST\" --debug build \
-              --frontend dockerfile.v0 \
-              --local context=. \
-              --local dockerfile=. \
-              --progress=plain \
-              --output type=image,name=\"$IMAGE\",push=true \
-              2>&1 | tee buildkit-push.log"
-
 
             buildctl --addr "$BUILDKIT_HOST" --debug build \
               --frontend dockerfile.v0 \
@@ -258,7 +247,6 @@ pipeline {
 
             echo "exit=$?"
             cat buildkit-push.log
-
           '''.stripIndent()
         }
       }
