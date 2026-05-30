@@ -294,9 +294,9 @@ pipeline {
           sh '''
             set -eux
 
-            // export GRYPE_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
-            // export GRYPE_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
-            // export GRYPE_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
+            # export GRYPE_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+            # export GRYPE_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
+            # export GRYPE_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
 
             grype sbom:"$REPORT_DIR/image-sbom.cdx.json" \
               -o json > "$REPORT_DIR/grype-image.json"
