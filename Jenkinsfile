@@ -268,6 +268,8 @@ pipeline {
             export SYFT_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
             export SYFT_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
             export SYFT_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
+            export SYFT_REGISTRY_INSECURE_USE_HTTP=true
+            export SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY=true
 
             syft registry:"$IMAGE" \
               -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
@@ -280,21 +282,21 @@ pipeline {
 
     stage('Image vulnerability scan - Grype') {
       steps {
-         withCredentials([
-          usernamePassword(
-            credentialsId:'nexus-local-creds',
-            usernameVariable:'NEXUS_USER',
-            passwordVariable: 'NEXUS_PASSWORD'
-          )
-        ]) {
+        //  withCredentials([
+        //   usernamePassword(
+        //     credentialsId:'nexus-local-creds',
+        //     usernameVariable:'NEXUS_USER',
+        //     passwordVariable: 'NEXUS_PASSWORD'
+        //   )
+        // ]) {
           catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
 
           sh '''
             set -eux
 
-            export GRYPE_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
-            export GRYPE_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
-            export GRYPE_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
+            // export GRYPE_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+            // export GRYPE_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
+            // export GRYPE_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
 
             grype sbom:"$REPORT_DIR/image-sbom.cdx.json" \
               -o json > "$REPORT_DIR/grype-image.json"
@@ -303,7 +305,7 @@ pipeline {
               --fail-on high
           '''
         }
-        }
+        // }
       }
     }
 
@@ -322,9 +324,11 @@ pipeline {
 
             export TRIVY_USERNAME="$NEXUS_USER"
             export TRIVY_PASSWORD="$NEXUS_PASSWORD"
+            export TRIVY_INSECURE=true
 
             trivy image \
               --image-src remote \
+              --insecure \
               --scanners vuln,secret,misconfig,license \
               --image-config-scanners misconfig,secret \
               --format json \
@@ -337,9 +341,11 @@ pipeline {
             set -eux
             export TRIVY_USERNAME="$NEXUS_USER"
             export TRIVY_PASSWORD="$NEXUS_PASSWORD"
+            export TRIVY_INSECURE=true
 
             trivy image \
               --image-src remote \
+              --insecure \
               --scanners vuln,secret,misconfig \
               --image-config-scanners misconfig,secret \
               --severity HIGH,CRITICAL \
