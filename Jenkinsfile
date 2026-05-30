@@ -236,6 +236,15 @@ pipeline {
 
             # set -x
 
+            echo "buildctl --addr \"$BUILDKIT_HOST\" --debug build \
+              --frontend dockerfile.v0 \
+              --local context=. \
+              --local dockerfile=. \
+              --progress=plain \
+              --output type=image,name=\"$IMAGE\",push=true \
+              2>&1 | tee buildkit-push.log"
+              
+
             buildctl --addr "$BUILDKIT_HOST" --debug build \
               --frontend dockerfile.v0 \
               --local context=. \
