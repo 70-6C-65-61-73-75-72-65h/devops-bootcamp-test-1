@@ -283,7 +283,6 @@ pipeline {
 
     stage('Image scan - Trivy') {
       steps {
-        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
         withCredentials([
           usernamePassword(
             credentialsId:'nexus-local-creds',
@@ -291,6 +290,7 @@ pipeline {
             passwordVariable: 'NEXUS_PASSWORD'
           )
         ]) {
+          catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
           sh '''
             set -eux
 
@@ -305,6 +305,8 @@ pipeline {
               --output "$REPORT_DIR/trivy-image.json" \
               "$IMAGE"
           '''
+          }
+          catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
           sh '''
             set -eux
             export TRIVY_USERNAME="$NEXUS_USER"
@@ -318,7 +320,7 @@ pipeline {
               --exit-code 1 \
               "$IMAGE"
           '''
-        }
+          }
         }
       }
     }
