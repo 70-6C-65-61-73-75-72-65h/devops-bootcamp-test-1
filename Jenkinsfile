@@ -248,6 +248,7 @@ pipeline {
               --frontend dockerfile.v0 \
               --local context=. \
               --local dockerfile=. \
+              --progress=plain \
               --output type=image,name="$IMAGE",push=true
 
           '''.stripIndent()
