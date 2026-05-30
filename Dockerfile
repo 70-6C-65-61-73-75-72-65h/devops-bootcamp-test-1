@@ -1,8 +1,13 @@
 FROM amazoncorretto:17-alpine-jdk
 
-EXPOSE 8080
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-COPY ./target/java-maven-app-*.jar /usr/app/
 WORKDIR /usr/app
 
-CMD ["java", "-jar", "java-maven-app-*.jar"]
+COPY --chown=appuser:appgroup ./target/java-maven-app-*.jar /app.jar
+
+USER appuser
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "app.jar"]
