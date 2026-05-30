@@ -244,7 +244,7 @@ pipeline {
             EOF
             #set -x
 
-            buildctl --addr "$BUILDKIT_HOST" build \
+            buildctl --addr "$BUILDKIT_HOST" --debug build \
               --frontend dockerfile.v0 \
               --local context=. \
               --local dockerfile=. \
