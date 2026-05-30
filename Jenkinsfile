@@ -269,7 +269,7 @@ pipeline {
             export SYFT_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
             export SYFT_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
 
-            syft "$IMAGE" \
+            syft registry:"$IMAGE" \
               -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
               -o spdx-json="$REPORT_DIR/image-sbom.spdx.json"
           '''
@@ -324,7 +324,7 @@ pipeline {
             export TRIVY_PASSWORD="$NEXUS_PASSWORD"
 
             trivy image \
-              --image-src "$REGISTRY" \
+              --image-src remote \
               --scanners vuln,secret,misconfig,license \
               --image-config-scanners misconfig,secret \
               --format json \
@@ -339,7 +339,7 @@ pipeline {
             export TRIVY_PASSWORD="$NEXUS_PASSWORD"
 
             trivy image \
-              --image-src registry \
+              --image-src remote \
               --scanners vuln,secret,misconfig \
               --image-config-scanners misconfig,secret \
               --severity HIGH,CRITICAL \
@@ -351,18 +351,19 @@ pipeline {
       }
     }
 
-    stage('Image scan - OSV') {
-      steps {
-        sh '''
-          set -eux
+  // не работает там где есть rootless buildkit  а не docker
+    // stage('Image scan - OSV') {
+    //   steps {
+    //     sh '''
+    //       set -eux
 
-          osv-scanner scan image \
-            --format=json \
-            --output="$REPORT_DIR/osv-image.json" \
-            "$IMAGE"
-        '''
-      }
-    }
+    //       osv-scanner scan image \
+    //         --format=json \
+    //         --output="$REPORT_DIR/osv-image.json" \
+    //         "$IMAGE"
+    //     '''
+    //   }
+    // }
 
   }
   post {
