@@ -30,8 +30,9 @@ pipeline {
           git rev-parse --short=12 HEAD > .git-short-sha
         """
         script {
-          def shortSha = readFile('.git-short-sha').trim()
-          env.IMAGE_TAG = "jmaic-1.0-${shortSha}" 
+          // def shortSha = readFile('.git-short-sha').trim()
+          env.IMAGE_TAG = "jmaic-1.0" 
+          // env.IMAGE_TAG = "jmaic-1.0-${shortSha}" 
           // env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortSha}" 
           env.IMAGE = "${env.IMAGE_REPO}:${env.IMAGE_TAG}"
           echo "IMAGE: ${env.IMAGE}"
