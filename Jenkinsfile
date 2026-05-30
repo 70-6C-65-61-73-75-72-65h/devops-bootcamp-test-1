@@ -40,7 +40,7 @@ pipeline {
         sh """
           set -eux
           java -version
-          maven -version
+          mvn --version
           buildctl --addr \"$BUILDKIT_HOST\" debug workers
           syft version
           grype version
