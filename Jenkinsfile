@@ -188,9 +188,8 @@ pipeline {
             passwordVariable: 'NEXUS_PASSWORD')]){
           sh '''
             set -euox pipefail
-
-            DOCKER_CONFIG = $(mktemp -d)
-            export DOCKER_CONFIG
+ 
+            export DOCKER_CONFIG="$(mktemp -d)"
 
             cleanup(){
               rc=$?
