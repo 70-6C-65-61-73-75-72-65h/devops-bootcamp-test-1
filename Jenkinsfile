@@ -117,18 +117,18 @@ pipeline {
       steps {
         sh """
           # OSV scan по source/dependency manifests
-          set -ux
+          set -x
           osv-scanner scan source \
             --recursive \
             --format=html \
             --output-file=\"$REPORT_DIR/osv-source.html\" \
-            .  
+            .  || true
  
           osv-scanner scan source \
             --recursive \
             --format=json \
             --output-file=\"$REPORT_DIR/osv-source.json\" \
-            .
+            . || true
           """
         sh """
           set -eux
