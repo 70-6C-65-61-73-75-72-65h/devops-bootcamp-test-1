@@ -216,23 +216,13 @@ pipeline {
               exit "$rc"
             }
 
-            trap cleanup EXIT INT TERM HUP
+            # trap cleanup EXIT INT TERM HUP
 
             umask 077
             mkdir -p "$DOCKER_CONFIG"
 
-            #set +x
+            set +x
             AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
-            cat <<EOF0
-            {
-              "auths": {
-                "$REGISTRY": {
-                  "auth": "$AUTH"
-                }
-              }
-            }
-            EOF0
-
             cat> "$DOCKER_CONFIG/config.json" <<EOF
             {
               "auths": {
@@ -242,14 +232,18 @@ pipeline {
               }
             }
             EOF
-            #set -x
+            set -x
 
             buildctl --addr "$BUILDKIT_HOST" --debug build \
               --frontend dockerfile.v0 \
               --local context=. \
               --local dockerfile=. \
               --progress=plain \
-              --output type=image,name="$IMAGE",push=true
+              --output type=image,name="$IMAGE",push=true \
+              2>&1 | tee buildkit-push.log
+
+            echo "exit=$?"
+            cat buildkit-push.log
 
           '''.stripIndent()
         }
