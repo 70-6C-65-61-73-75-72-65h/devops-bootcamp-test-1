@@ -117,18 +117,26 @@ pipeline {
       steps {
         sh """
           set -eux
-
-          # OSV scan по source/dependency manifests
-          osv-scanner scan source \
+           osv-scanner scan source \
             --recursive \
-            --format=json \
-            --output=\"$REPORT_DIR/osv-source.json\" \
+            --format=html \
+            --output-file=\"$REPORT_DIR/osv-source.html\" \
             .
-
+        """
+        // sh """
+        //   # OSV scan по source/dependency manifests
+        //   osv-scanner scan source \
+        //     --recursive \
+        //     --format=json \
+        //     --output-file=\"$REPORT_DIR/osv-source.json\" \
+        //     .
+        //   """
+        sh """
+          set -eux
           # Grype scan по Maven CycloneDX SBOM
           grype sbom:\"$REPORT_DIR/maven-sbom.cdx.json\" \
             -o json > \"$REPORT_DIR/grype-maven-sbom.json\"
-
+    
           # Gate: HIGH/CRITICAL ломают билд
           grype sbom:\"$REPORT_DIR/maven-sbom.cdx.json\" \
             --fail-on high
