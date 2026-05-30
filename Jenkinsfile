@@ -17,6 +17,9 @@ pipeline {
     REPORT_DIR = 'security-reports'
 
   }
+  parameters {
+    booleanParam(name: 'RUN_MVN_CHECKS', defaultValue: false, description: 'Toggle to run maven source code checks')
+  }
   stages{
     stage("Checkout"){
       steps {
@@ -54,6 +57,9 @@ pipeline {
     }
 
     stage('Secrets scan') {
+      when { 
+        expression { params.RUN_MVN_CHECKS } 
+      }
       steps {
         sh """
           set -eux
@@ -82,6 +88,9 @@ pipeline {
     }
 
     stage('SAST - Semgrep') {
+      when { 
+        expression { params.RUN_MVN_CHECKS } 
+      }
       steps {
         sh """
           set -eux
@@ -114,6 +123,9 @@ pipeline {
     }
     
     stage('Maven dependency SBOM') {
+      when { 
+        expression { params.RUN_MVN_CHECKS } 
+      }
       steps {
         sh """
           set -eux
@@ -128,6 +140,9 @@ pipeline {
     }
 
     stage('Maven dependency scan') {
+      when { 
+        expression { params.RUN_MVN_CHECKS } 
+      }
       steps {
         catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
         sh """
@@ -165,20 +180,23 @@ pipeline {
       }
     }
 
-    // stage('OWASP Dependency-Check') {
-    //   steps {
-    //     catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
-    //     sh """
-    //       set -eux
+    stage('OWASP Dependency-Check') {
+      when { 
+        expression { params.RUN_MVN_CHECKS } 
+      }
+      steps {
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+        sh """
+          set -eux
 
-    //       mvn -B -ntp org.owasp:dependency-check-maven:check \
-    //         -Dformat=ALL \
-    //         -DfailBuildOnCVSS=9 \
-    //         -DoutputDirectory=\"$REPORT_DIR/dependency-check\"
-    //     """
-    //   }
-    //   }
-    // }
+          mvn -B -ntp org.owasp:dependency-check-maven:check \
+            -Dformat=ALL \
+            -DfailBuildOnCVSS=9 \
+            -DoutputDirectory=\"$REPORT_DIR/dependency-check\"
+        """
+      }
+      }
+    }
 
     stage('Build and push image with Buildkit'){
       steps{
@@ -205,6 +223,16 @@ pipeline {
 
             #set +x
             AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
+            cat <<EOF0
+            {
+              "auths": {
+                "$REGISTRY": {
+                  "auth": "$AUTH"
+                }
+              }
+            }
+            EOF0
+
             cat> "$DOCKER_CONFIG/config.json" <<EOF
             {
               "auths": {
