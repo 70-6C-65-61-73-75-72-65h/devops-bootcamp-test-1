@@ -228,7 +228,6 @@ pipeline {
     
     stage('Image SBOM - Syft') {
       steps {
-        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
         withCredentials([
           usernamePassword(
             credentialsId:'nexus-local-creds',
@@ -236,6 +235,7 @@ pipeline {
             passwordVariable: 'NEXUS_PASSWORD'
           )
         ]) {
+          catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
           sh '''
             set -eux
 
@@ -248,20 +248,21 @@ pipeline {
               -o spdx-json="$REPORT_DIR/image-sbom.spdx.json"
           '''
         }
-      }
+        }
       }
     }
 
     stage('Image vulnerability scan - Grype') {
       steps {
-      catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
-        withCredentials([
+         withCredentials([
           usernamePassword(
             credentialsId:'nexus-local-creds',
             usernameVariable:'NEXUS_USER',
             passwordVariable: 'NEXUS_PASSWORD'
           )
         ]) {
+          catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+
           sh '''
             set -eux
 
@@ -276,7 +277,7 @@ pipeline {
               --fail-on high
           '''
         }
-      }
+        }
       }
     }
 
