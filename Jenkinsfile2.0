@@ -283,7 +283,7 @@ pipeline {
               "$IMAGE"
 
             trivy image \
-              --image-src registry \a
+              --image-src registry \
               --scanners vuln,secret,misconfig \
               --image-config-scanners misconfig,secret \
               --severity HIGH,CRITICAL \

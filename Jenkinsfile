@@ -12,9 +12,8 @@ pipeline {
   }
   environment {
     BUILDKIT_HOST = 'tcp://buildkit:1234'
-    // REGISTRY = 'nexus:8083'
-    // IMAGE_REPO = 'nexus:8083/devops-bootcamp-demo:jmaic-1.0'
-    // IMAGE_REPO = 'nexus:8083/devops-bootcamp-demo'
+    REGISTRY = 'nexus:8083'
+    IMAGE_REPO = 'nexus:8083/devops-bootcamp-demo:jmaic-1.0'
     REPORT_DIR = 'security-reports'
 
   }
@@ -30,8 +29,8 @@ pipeline {
         script {
           def shortSha = readFile('.git-short-sha').trim()
           env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortSha}" 
-          // env.IMAGE = "${IMAGE_REPO}:${env.IMAGE_TAG}"
-          echo "IMAGE_TAG: ${env.IMAGE_TAG}"
+          env.IMAGE = "${env.IMAGE_REPO}:${env.IMAGE_TAG}"
+          echo "IMAGE: ${env.IMAGE}"
         }
       }
     }
@@ -129,21 +128,28 @@ pipeline {
 
     stage('Maven dependency scan') {
       steps {
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
         sh """
           # OSV scan по source/dependency manifests
-          set -x
+          set -eux
           osv-scanner scan source \
             --recursive \
             --format=html \
             --output-file=\"$REPORT_DIR/osv-source.html\" \
-            .  || true
- 
+            .
+        """
+        }
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+        sh """
+         set -eux
           osv-scanner scan source \
             --recursive \
             --format=json \
             --output-file=\"$REPORT_DIR/osv-source.json\" \
-            . || true
-          """
+            .
+        """
+        }
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
         sh """
           set -eux
           # Grype scan по Maven CycloneDX SBOM
@@ -152,29 +158,189 @@ pipeline {
     
           # Gate: HIGH/CRITICAL ломают билд
           grype sbom:\"$REPORT_DIR/maven-sbom.cdx.json\" \
-            --fail-on high || true
+            --fail-on high
         """
+        }
       }
     }
 
     stage('OWASP Dependency-Check') {
       steps {
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
         sh """
           set -eux
 
           mvn -B -ntp org.owasp:dependency-check-maven:check \
             -Dformat=ALL \
             -DfailBuildOnCVSS=9 \
-            -DoutputDirectory=\"$REPORT_DIR/dependency-check\" || true
+            -DoutputDirectory=\"$REPORT_DIR/dependency-check\"
         """
+      }
       }
     }
 
+    stage('Build and push image with Buildkit'){
+      steps{
+        withCredentials([
+          usernamePassword(
+            credentialsId:'nexus-local-creds',
+            usernameVariable:'NEXUS_USER',
+            passwordVariable: 'NEXUS_PASSWORD')]){
+          sh '''
+            set -euox pipefail
+
+            DOCKER_CONFIG = $(mktemp -d)
+            export DOCKER_CONFIG
+
+            cleanup(){
+              rc=$?
+              rm -rf "$DOCKER_CONFIG"
+              exit "$rc"
+            }
+
+            trap cleanup EXIT INT TERM HUP
+
+            umask 077
+            mkdir -p "$DOCKER_CONFIG"
+
+            set +x
+            AUTH=$(printf '%s:$s' "$NEXUS_USER" "$NEXUS_PASSWORD" | base64 | tr -d '\\n')
+            cat> "$DOCKER_CONFIG/config.json" <<EOF
+            {
+              "auths": {
+                "$REGISTRY": {
+                  "auth": "$AUTH"
+                }
+              }
+            }
+            EOF
+            set -x
+
+            buildctl --addr "$BUILDKIT_HOST" build \
+              --frontend dockerfile.v0 \
+              --local context=. \
+              --local dockerfile=. \
+              --output type=image,name="$IMAGE",push=true
+
+          '''.stripIndent()
+        }
+      }
+    }
+    
+    stage('Image SBOM - Syft') {
+      steps {
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+        withCredentials([
+          usernamePassword(
+            credentialsId:'nexus-local-creds',
+            usernameVariable:'NEXUS_USER',
+            passwordVariable: 'NEXUS_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export SYFT_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+            export SYFT_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
+            export SYFT_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
+
+            syft "$IMAGE" \
+              -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
+              -o spdx-json="$REPORT_DIR/image-sbom.spdx.json"
+          '''
+        }
+      }
+      }
+    }
+
+    stage('Image vulnerability scan - Grype') {
+      steps {
+      catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+        withCredentials([
+          usernamePassword(
+            credentialsId:'nexus-local-creds',
+            usernameVariable:'NEXUS_USER',
+            passwordVariable: 'NEXUS_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export GRYPE_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+            export GRYPE_REGISTRY_AUTH_USERNAME="$NEXUS_USER"
+            export GRYPE_REGISTRY_AUTH_PASSWORD="$NEXUS_PASSWORD"
+
+            grype sbom:"$REPORT_DIR/image-sbom.cdx.json" \
+              -o json > "$REPORT_DIR/grype-image.json"
+
+            grype sbom:"$REPORT_DIR/image-sbom.cdx.json" \
+              --fail-on high
+          '''
+        }
+      }
+      }
+    }
+
+    stage('Image scan - Trivy') {
+      steps {
+        catchError(buildResult: "SUCCESS", stageResult:"FAILURE"){
+        withCredentials([
+          usernamePassword(
+            credentialsId:'nexus-local-creds',
+            usernameVariable:'NEXUS_USER',
+            passwordVariable: 'NEXUS_PASSWORD'
+          )
+        ]) {
+          sh '''
+            set -eux
+
+            export TRIVY_USERNAME="$NEXUS_USER"
+            export TRIVY_PASSWORD="$NEXUS_PASSWORD"
+
+            trivy image \
+              --image-src "$REGISTRY" \
+              --scanners vuln,secret,misconfig,license \
+              --image-config-scanners misconfig,secret \
+              --format json \
+              --output "$REPORT_DIR/trivy-image.json" \
+              "$IMAGE"
+          '''
+          sh '''
+            set -eux
+            export TRIVY_USERNAME="$NEXUS_USER"
+            export TRIVY_PASSWORD="$NEXUS_PASSWORD"
+
+            trivy image \
+              --image-src registry \
+              --scanners vuln,secret,misconfig \
+              --image-config-scanners misconfig,secret \
+              --severity HIGH,CRITICAL \
+              --exit-code 1 \
+              "$IMAGE"
+          '''
+        }
+        }
+      }
+    }
+
+    stage('Image scan - OSV') {
+      steps {
+        sh '''
+          set -eux
+
+          osv-scanner scan image \
+            --format=json \
+            --output="$REPORT_DIR/osv-image.json" \
+            "$IMAGE"
+        '''
+      }
+    }
 
   }
   post {
     always {
       archiveArtifacts artifacts: "$REPORT_DIR/**/*", allowEmptyArchive: true
+      sh 'rm -rf "$WORKSPACE/.docker-ci" 2>/dev/null || true'
     }
     success{
       echo "Image built and scanned: ${env.IMAGE_TAG}"
