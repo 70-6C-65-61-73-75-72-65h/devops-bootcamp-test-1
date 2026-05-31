@@ -179,7 +179,7 @@ pipeline {
                 export TRIVY_PASSWORD="$NEXUS_PASSWORD"
 
                 trivy image  \
-                  --image-src remote
+                  --image-src remote \
                   --scanners vuln,secret,misconfig,license \
                   --image-config-scanners misconfig,secret \ 
                   --format json \
@@ -187,7 +187,7 @@ pipeline {
                   "$IMAGE_NAME"
 
                 trivy image  \
-                  --image-src remote
+                  --image-src remote \
                   --scanners vuln,secret,misconfig \
                   --image-config-scanners misconfig,secret \ 
                   --format json \
