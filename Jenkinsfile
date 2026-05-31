@@ -1,5 +1,7 @@
 @Library('jenkins-shared-library-1')_
 
+def registryDockerConfigMap = ['docker.io': 'https://index.docker.io/v1/']
+
 pipeline {
   agent {
     label 'buildkit'
@@ -33,14 +35,17 @@ pipeline {
         script { 
           def lastCommitSha = readFile('.git-sha-short')
           env.LAST_COMMIT = "${lastCommitSha}"
-          echo "LAST COMMIT: $LAST_COMMIT"
+          echo "LAST COMMIT: ${env.LAST_COMMIT}"
           env.REGISTRY = "${params.REGISTRY}"
           env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
           env.IMAGE_REPO = "${params.IMAGE_REPO}"
-          env.IMAGE_NAME = "$REGISTRY/$IMAGE_REPO:${params.IMAGE_TAG}"
+          env.IMAGE_NAME = "${env.REGISTRY}/${env.IMAGE_REPO}:${params.IMAGE_TAG}"
           echo "IMAGE_NAME: ${env.IMAGE_NAME}"
           echo "IMAGE_REPO: ${env.IMAGE_REPO}"
           echo "REGISTRY: ${env.REGISTRY}"
+          env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
+            ? registryDockerConfigMap["${env.REGISTRY}"] 
+            : "${env.REGISTRY}"
         }
       }
     }
@@ -114,7 +119,7 @@ pipeline {
 
               jq -n \
                 --arg auth "$AUTH" \
-                --arg registry "$REGISTRY" \
+                --arg registry "$REGISTRY_DOCKER_CONFIG" \
                 '{auths: {($registry): {auth: $auth}}}' \
               > "$DOCKER_CONFIG/config.json"
 
