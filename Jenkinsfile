@@ -38,9 +38,9 @@ pipeline {
           env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
           env.IMAGE_REPO = "${params.IMAGE_REPO}"
           env.IMAGE_NAME = "$REGISTRY/$IMAGE_REPO:${params.IMAGE_TAG}"
-          echo 'IMAGE_NAME: $IMAGE_NAME'
-          echo 'IMAGE_REPO: $IMAGE_REPO'
-          echo 'REGISTRY: $REGISTRY'
+          echo "IMAGE_NAME: ${IMAGE_NAME}"
+          echo "IMAGE_REPO: ${IMAGE_REPO}"
+          echo "REGISTRY: ${REGISTRY}"
         }
       }
     }
