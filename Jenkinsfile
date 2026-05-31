@@ -40,6 +40,7 @@ pipeline {
           env.IMAGE_NAME = "$IMAGE_REPO:${params.IMAGE_TAG}"
           echo 'IMAGE_NAME: $IMAGE_NAME'
           echo 'IMAGE_REPO: $IMAGE_REPO'
+          echo 'REGISTRY: $REGISTRY'
         }
       }
     }
@@ -112,8 +113,8 @@ pipeline {
               AUTH=$(printf '%s:%s' "$DOCKERHUB_USER" "$DOCKERHUB_PASSWORD" | base64 | tr -d '\\n')
 
               jq -n \
-                --arg auth="$AUTH" \
-                --arg registry="$REGISTRY" \
+                --arg auth "$AUTH" \
+                --arg registry "$REGISTRY" \
                 '{auths: {($registry): {auth: $auth}}}' \
               > "$DOCKER_CONFIG/config.json"
 
