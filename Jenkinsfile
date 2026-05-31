@@ -114,7 +114,6 @@ pipeline {
               trap cleanup EXIT INT TERM HUP
 
               set +x
-
               AUTH=$(printf '%s:%s' "$DOCKERHUB_USER" "$DOCKERHUB_PASSWORD" | base64 | tr -d '\\n')
 
               jq -n \
@@ -124,7 +123,6 @@ pipeline {
               > "$DOCKER_CONFIG/config.json"
 
               unset AUTH
-
               set -x
 
               buildctl --addr $BUILDKIT_HOST build \
