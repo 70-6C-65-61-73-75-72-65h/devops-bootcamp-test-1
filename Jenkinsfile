@@ -68,6 +68,7 @@ pipeline {
             hadolint "$DOCKERFILE_PATH/Dockerfile" | tee "$REPORT_DIR/hadolint.txt"
           else
             echo "No Dockerfile Found, Skipping Hadolint" | tee "$REPORT_DIR/hadolint.txt"
+          fi
         '''
       }
     }
