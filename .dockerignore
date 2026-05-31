@@ -1,1 +1,10 @@
 Jenkinsfile
+Dockerfile
+.dockerignore
+
+.git
+.gitignore
+
+.env
+
+**/src/target/
