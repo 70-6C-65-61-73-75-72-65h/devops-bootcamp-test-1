@@ -109,7 +109,7 @@ pipeline {
 
               set +x
 
-              AUTH=$(printf '%s:%s' "$DOCKERHUB_USER" "$DOCKERHUB_PASSWORD" | base64 | trim -d '\\n')
+              AUTH=$(printf '%s:%s' "$DOCKERHUB_USER" "$DOCKERHUB_PASSWORD" | base64 | tr -d '\\n')
 
               jq -n \
                 --arg auth="$AUTH" \
