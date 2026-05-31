@@ -181,7 +181,7 @@ pipeline {
                 trivy image  \
                   --image-src remote \
                   --scanners vuln,secret,misconfig,license \
-                  --image-config-scanners misconfig,secret \ 
+                  --image-config-scanners misconfig,secret \
                   --format json \
                   --output "$REPORT_DIR/trivy-image.json" \
                   "$IMAGE_NAME"
@@ -189,7 +189,7 @@ pipeline {
                 trivy image  \
                   --image-src remote \
                   --scanners vuln,secret,misconfig \
-                  --image-config-scanners misconfig,secret \ 
+                  --image-config-scanners misconfig,secret \
                   --format json \
                   --severity HIGH,CRITICAL \
                   --exit-code 1 \
