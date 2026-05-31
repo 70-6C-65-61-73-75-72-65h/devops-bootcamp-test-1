@@ -30,15 +30,17 @@ pipeline {
           mkdir -p "$REPORT_DIR"
           git rev-parse --short=12  HEAD  > .git-sha-short
         '''
-        def lastCommitSha = readFile('.git-sha-short')
-        env.LAST_COMMIT = "${lastCommitSha}"
-        echo "LAST COMMIT: $LAST_COMMIT"
-        env.REGISTRY = "${params.REGISTRY}"
-        env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
-        env.IMAGE_REPO = "${params.IMAGE_REPO}"
-        env.IMAGE_NAME = "$IMAGE_REPO:${params.IMAGE_TAG}"
-        echo 'IMAGE_NAME: $IMAGE_NAME'
-        echo 'IMAGE_REPO: $IMAGE_REPO'
+        script { 
+          def lastCommitSha = readFile('.git-sha-short')
+          env.LAST_COMMIT = "${lastCommitSha}"
+          echo "LAST COMMIT: $LAST_COMMIT"
+          env.REGISTRY = "${params.REGISTRY}"
+          env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
+          env.IMAGE_REPO = "${params.IMAGE_REPO}"
+          env.IMAGE_NAME = "$IMAGE_REPO:${params.IMAGE_TAG}"
+          echo 'IMAGE_NAME: $IMAGE_NAME'
+          echo 'IMAGE_REPO: $IMAGE_REPO'
+        }
       }
     }
 
@@ -199,8 +201,8 @@ pipeline {
           }
       }
     }
-
-    post {
+  }
+      post {
       always {
         archiveArtifacts artifacts: '$REPORT_DIR/**/*', allowEmptyArchive: true
       }
@@ -208,5 +210,4 @@ pipeline {
         echo 'Image successfully built and scanned: $IMAGE_NAME for such commmit: $LAST_COMMIT'
       } 
     }
-  }
 }
