@@ -11,7 +11,7 @@ pipeline {
   parameters {
     // booleanParam(name: "RUN_MVN_CHECKS", defaultValue: false, description: "Run maven code source checks")
     string(name: "REGISTRY", defaultValue: 'docker.io', description: "IMAGE REGISTRY")
-    string(name: "IMAGE_REPO", defaultValue: '/myprojectsthebest/devops-bootcamp-demo', description: "IMAGE REPO")
+    string(name: "IMAGE_REPO", defaultValue: 'myprojectsthebest/devops-bootcamp-demo', description: "IMAGE REPO")
     string(name: "IMAGE_TAG", defaultValue: 'jmaic-1.0', description: "IMAGE TAG")
     string(name: "DOCKERFILE_PATH", defaultValue: '.', description: "Dockerfile path")
   }
@@ -37,7 +37,7 @@ pipeline {
           env.REGISTRY = "${params.REGISTRY}"
           env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
           env.IMAGE_REPO = "${params.IMAGE_REPO}"
-          env.IMAGE_NAME = "$IMAGE_REPO:${params.IMAGE_TAG}"
+          env.IMAGE_NAME = "$REGISTRY/$IMAGE_REPO:${params.IMAGE_TAG}"
           echo 'IMAGE_NAME: $IMAGE_NAME'
           echo 'IMAGE_REPO: $IMAGE_REPO'
           echo 'REGISTRY: $REGISTRY'
