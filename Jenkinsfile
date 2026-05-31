@@ -184,8 +184,8 @@ pipeline {
             catchError {
               sh '''
                 set -eux;
-                export TRIVY_USERNAME="$NEXUS_USER"
-                export TRIVY_PASSWORD="$NEXUS_PASSWORD"
+                export TRIVY_USERNAME="$DOCKERHUB_USER"
+                export TRIVY_PASSWORD="$DOCKERHUB_PASSWORD"
 
                 trivy image  \
                   --image-src remote \

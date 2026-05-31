@@ -4,7 +4,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /usr/app
 
-COPY --chown=appuser:appgroup ./target/java-maven-app-*.jar /app.jar
+COPY --chown=appuser:appgroup ./target/java-maven-app-*.jar ./app.jar
 
 USER appuser
 
