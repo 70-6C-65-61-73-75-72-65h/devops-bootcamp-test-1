@@ -16,6 +16,7 @@ pipeline {
     string(name: "IMAGE_REPO", defaultValue: 'myprojectsthebest/devops-bootcamp-demo', description: "IMAGE REPO")
     string(name: "IMAGE_TAG", defaultValue: 'jmaic-1.0', description: "IMAGE TAG")
     string(name: "DOCKERFILE_PATH", defaultValue: '.', description: "Dockerfile path")
+    string(name: "REPO_CREDS_ID", defaultValue: 'dockerhub-creds', description: "Dockerfile path")
   }
   options {
     disableConcurrentBuilds()
@@ -37,6 +38,7 @@ pipeline {
           env.LAST_COMMIT = "${lastCommitSha}"
           echo "LAST COMMIT: ${env.LAST_COMMIT}"
           env.REGISTRY = "${params.REGISTRY}"
+          env.REPO_CREDS_ID = "${params.REPO_CREDS_ID}"
           env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
           env.IMAGE_REPO = "${params.IMAGE_REPO}"
           env.IMAGE_NAME = "${env.REGISTRY}/${env.IMAGE_REPO}:${params.IMAGE_TAG}"
@@ -68,14 +70,9 @@ pipeline {
 
     stage("Dockerfile Lint"){
       steps {
-        sh '''
-          set -eux;
-          if [ -f "$DOCKERFILE_PATH/Dockerfile" ]; then
-            hadolint "$DOCKERFILE_PATH/Dockerfile" | tee "$REPORT_DIR/hadolint.txt"
-          else
-            echo "No Dockerfile Found, Skipping Hadolint" | tee "$REPORT_DIR/hadolint.txt"
-          fi
-        '''
+        script{
+          dockerfileLint()
+        } 
       }
     }
 
@@ -96,49 +93,16 @@ pipeline {
 
     stage("Build Image and Push to Remote Regisrty"){
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: "dockerhub-creds",
-          usernameVariable: "DOCKERHUB_USER",
-          passwordVariable: "DOCKERHUB_PASSWORD")]){
-            sh '''
-              set -euox pipefail
-
-              export DOCKER_CONFIG="$(mktemp -d)"
-
-              cleanup(){
-                rc=$?
-                rm -rf "$DOCKER_CONFIG"
-                exit "$rc"
-              }
-
-              trap cleanup EXIT INT TERM HUP
-
-              set +x
-              AUTH=$(printf '%s:%s' "$DOCKERHUB_USER" "$DOCKERHUB_PASSWORD" | base64 | tr -d '\\n')
-
-              jq -n \
-                --arg auth "$AUTH" \
-                --arg registry "$REGISTRY_DOCKER_CONFIG" \
-                '{auths: {($registry): {auth: $auth}}}' \
-              > "$DOCKER_CONFIG/config.json"
-
-              unset AUTH
-              set -x
-
-              buildctl --addr $BUILDKIT_HOST build \
-                --frontend dockerfile.v0 \
-                --local context=. \
-                --local dockerfile="$DOCKERFILE_PATH" \
-                --output type=image,name="$IMAGE_NAME",push=true
-            '''.stripIndent()
+        script {
+          buildAndPushImage(env.REPO_CREDS_ID)
         }
-      }
+       }
     }
 
     stage("Image SBOM - SYFT"){
       steps {
         withCredentials([usernamePassword(
-          credentialsId: "dockerhub-creds",
+          credentialsId: "$REPO_CREDS_ID",
           usernameVariable: "DOCKERHUB_USER",
           passwordVariable: "DOCKERHUB_PASSWORD")]){
             catchError {
@@ -175,35 +139,10 @@ pipeline {
 
     stage("Image Scan - TRIVY"){
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: "dockerhub-creds",
-          usernameVariable: "DOCKERHUB_USER",
-          passwordVariable: "DOCKERHUB_PASSWORD")]){
-            catchError {
-              sh '''
-                set -eux;
-                export TRIVY_USERNAME="$DOCKERHUB_USER"
-                export TRIVY_PASSWORD="$DOCKERHUB_PASSWORD"
-
-                trivy image  \
-                  --image-src remote \
-                  --scanners vuln,secret,misconfig,license \
-                  --image-config-scanners misconfig,secret \
-                  --format json \
-                  --output "$REPORT_DIR/trivy-image.json" \
-                  "$IMAGE_NAME"
-
-                trivy image  \
-                  --image-src remote \
-                  --scanners vuln,secret,misconfig \
-                  --image-config-scanners misconfig,secret \
-                  --format json \
-                  --severity HIGH,CRITICAL \
-                  --exit-code 1 \
-                  "$IMAGE_NAME"
-              '''
-            }
-          }
+        script {
+          trivyImageScan(env.REPO_CREDS_ID)
+          trivyImageScan(env.REPO_CREDS_ID, 'gate')
+        } 
       }
     }
   }
