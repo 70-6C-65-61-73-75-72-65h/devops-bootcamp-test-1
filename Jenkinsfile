@@ -146,7 +146,7 @@ pipeline {
       }
     }
   }
-      post {
+    post {
       always {
         archiveArtifacts artifacts: '$REPORT_DIR/**/*', allowEmptyArchive: true
       }
