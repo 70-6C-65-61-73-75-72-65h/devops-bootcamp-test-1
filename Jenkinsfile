@@ -17,6 +17,12 @@ pipeline {
     string(name: "IMAGE_TAG", defaultValue: 'jmaic-1.0', description: "IMAGE TAG")
     string(name: "DOCKERFILE_PATH", defaultValue: '.', description: "Dockerfile path")
     string(name: "REPO_CREDS_ID", defaultValue: 'dockerhub-creds', description: "Dockerfile path")
+
+    choice(
+            name: 'MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE', 
+            choices: ['Incremental', 'Minor', 'Major'], 
+            description: 'Select which version level should be updated for maven app.'
+        )
   }
   options {
     disableConcurrentBuilds()
@@ -71,6 +77,24 @@ pipeline {
     stage("Dockerfile Lint"){
       steps { 
         dockerfileLint()
+      }
+    }
+
+    stage("Update maven app version"){
+      steps {
+        script {
+          if(params.MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE == 'Major'){
+            sh '''mvn build-helper:parse-version versions:set \
+         '-DnewVersion=${parsedVersion.nextMajorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}' versions:commit'''
+          } else if(params.MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE == 'Minor'){
+            sh '''mvn build-helper:parse-version versions:set \
+         '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.nextMinorVersion}.${parsedVersion.incrementalVersion}' versions:commit'''
+          } else {
+            sh '''mvn build-helper:parse-version versions:set \
+         '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}' versions:commit'''
+          }
+        }
+         
       }
     }
 
