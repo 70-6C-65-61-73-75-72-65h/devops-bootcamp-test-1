@@ -146,12 +146,13 @@ pipeline {
       }
     }
   }
-    post {
-      always {
-        archiveArtifacts artifacts: '$REPORT_DIR/**/*', allowEmptyArchive: true
-      }
-      success {
-        echo 'Image successfully built and scanned: $IMAGE_NAME for such commmit: $LAST_COMMIT'
-      } 
+
+  post {
+    always {
+      archiveArtifacts artifacts: '$REPORT_DIR/**/*', allowEmptyArchive: true
     }
+    success {
+      echo 'Image successfully built and scanned: $IMAGE_NAME for such commmit: $LAST_COMMIT'
+    } 
+  }
 }
