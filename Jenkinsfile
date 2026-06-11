@@ -32,23 +32,21 @@ pipeline {
           set -eux
           mkdir -p "$REPORT_DIR"
           git rev-parse --short=12  HEAD  > .git-sha-short
-        '''
-        script { 
-          def lastCommitSha = readFile('.git-sha-short')
-          env.LAST_COMMIT = "${lastCommitSha}"
-          echo "LAST COMMIT: ${env.LAST_COMMIT}"
-          env.REGISTRY = "${params.REGISTRY}"
-          env.REPO_CREDS_ID = "${params.REPO_CREDS_ID}"
-          env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
-          env.IMAGE_REPO = "${params.IMAGE_REPO}"
-          env.IMAGE_NAME = "${env.REGISTRY}/${env.IMAGE_REPO}:${params.IMAGE_TAG}"
-          echo "IMAGE_NAME: ${env.IMAGE_NAME}"
-          echo "IMAGE_REPO: ${env.IMAGE_REPO}"
-          echo "REGISTRY: ${env.REGISTRY}"
-          env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
-            ? registryDockerConfigMap["${env.REGISTRY}"] 
-            : "${env.REGISTRY}"
-        }
+        ''' 
+        def lastCommitSha = readFile('.git-sha-short')
+        env.LAST_COMMIT = "${lastCommitSha}"
+        echo "LAST COMMIT: ${env.LAST_COMMIT}"
+        env.REGISTRY = "${params.REGISTRY}"
+        env.REPO_CREDS_ID = "${params.REPO_CREDS_ID}"
+        env.DOCKERFILE_PATH = "${params.DOCKERFILE_PATH}"
+        env.IMAGE_REPO = "${params.IMAGE_REPO}"
+        env.IMAGE_NAME = "${env.REGISTRY}/${env.IMAGE_REPO}:${params.IMAGE_TAG}"
+        echo "IMAGE_NAME: ${env.IMAGE_NAME}"
+        echo "IMAGE_REPO: ${env.IMAGE_REPO}"
+        echo "REGISTRY: ${env.REGISTRY}"
+        env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
+          ? registryDockerConfigMap["${env.REGISTRY}"] 
+          : "${env.REGISTRY}" 
       }
     }
 
@@ -69,10 +67,8 @@ pipeline {
     }
 
     stage("Dockerfile Lint"){
-      steps {
-        script{
-          dockerfileLint()
-        } 
+      steps { 
+        dockerfileLint()
       }
     }
 
@@ -93,9 +89,7 @@ pipeline {
 
     stage("Build Image and Push to Remote Regisrty"){
       steps {
-        script {
-          buildAndPushImage(env.REPO_CREDS_ID)
-        }
+        buildAndPushImage(env.REPO_CREDS_ID)
        }
     }
 
@@ -139,10 +133,8 @@ pipeline {
 
     stage("Image Scan - TRIVY"){
       steps {
-        script {
-          trivyImageScan(env.REPO_CREDS_ID)
-          trivyImageScan(env.REPO_CREDS_ID, 'gate')
-        } 
+        trivyImageScan(env.REPO_CREDS_ID)
+        trivyImageScan(env.REPO_CREDS_ID, 'gate')
       }
     }
   }
