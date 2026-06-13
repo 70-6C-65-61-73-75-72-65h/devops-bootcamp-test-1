@@ -146,7 +146,7 @@ pipeline {
 
               echo "$(aws sts get-caller-identity)"
 
-              if [ "$REGISTRY" == "public.ecr.aws" ]; then 
+              if [ "$REGISTRY" = "public.ecr.aws" ]; then 
                 PASSWORD=$(aws ecr-public get-login-password --region 'us-east-1')
               else
                 PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
@@ -202,7 +202,7 @@ pipeline {
               sh '''
               echo "$(aws sts get-caller-identity)"
 
-              if [ "$REGISTRY" == "public.ecr.aws" ]; then 
+              if [ "$REGISTRY" = "public.ecr.aws" ]; then 
                 PASSWORD=$(aws ecr-public get-login-password --region 'us-east-1')
               else
                 PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
