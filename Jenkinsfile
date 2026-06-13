@@ -17,12 +17,18 @@ pipeline {
     string(name: "IMAGE_TAG", defaultValue: 'jmaic-1.0', description: "IMAGE TAG")
     string(name: "DOCKERFILE_PATH", defaultValue: '.', description: "Dockerfile path")
     string(name: "REPO_CREDS_ID", defaultValue: 'dockerhub-creds', description: "Dockerfile path")
-
+    // boolean(name:"IS_AWS_ECR_REPO", defaultValue: false, description: "Specify is it aws ecr repo to push to or other regular one")
+    // string(name: "AWS_REGION", defaultValue: "eu-north-1", description:"AWS_REGION")
     choice(
-            name: 'MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE', 
-            choices: ['Incremental', 'Minor', 'Major'], 
-            description: 'Select which version level should be updated for maven app.'
+            name: 'AWS_REGION', 
+            choices: [null, 'eu-north-1'], 
+            description: 'Select which aws region is used if its aws ecr repo to push the image'
         )
+    // choice(
+    //         name: 'MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE', 
+    //         choices: ['Incremental', 'Minor', 'Major'], 
+    //         description: 'Select which version level should be updated for maven app.'
+    //     )
   }
   options {
     disableConcurrentBuilds()
@@ -54,6 +60,8 @@ pipeline {
           env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
             ? registryDockerConfigMap["${env.REGISTRY}"] 
             : "${env.REGISTRY}" 
+          echo "AWS_REGION: ${env.AWS_REGION}"
+
         }
       }
     }
@@ -80,23 +88,23 @@ pipeline {
       }
     }
 
-    stage("Update maven app version"){
-      steps {
-        script {
-          if(params.MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE == 'Major'){
-            sh '''mvn build-helper:parse-version versions:set \
-         '-DnewVersion=${parsedVersion.nextMajorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}' versions:commit'''
-          } else if(params.MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE == 'Minor'){
-            sh '''mvn build-helper:parse-version versions:set \
-         '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.nextMinorVersion}.${parsedVersion.incrementalVersion}' versions:commit'''
-          } else {
-            sh '''mvn build-helper:parse-version versions:set \
-         '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}' versions:commit'''
-          }
-        }
+    // stage("Update maven app version"){
+    //   steps {
+    //     script {
+    //       if(params.MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE == 'Major'){
+    //         sh '''mvn build-helper:parse-version versions:set \
+    //      '-DnewVersion=${parsedVersion.nextMajorVersion}.${parsedVersion.minorVersion}.${parsedVersion.incrementalVersion}' versions:commit'''
+    //       } else if(params.MAVEN_PACKAGE_VERSION_LEVEL_TO_UPDATE == 'Minor'){
+    //         sh '''mvn build-helper:parse-version versions:set \
+    //      '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.nextMinorVersion}.${parsedVersion.incrementalVersion}' versions:commit'''
+    //       } else {
+    //         sh '''mvn build-helper:parse-version versions:set \
+    //      '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}' versions:commit'''
+    //       }
+    //     }
          
-      }
-    }
+    //   }
+    // }
 
     stage("Build source code and run junit tests"){
       steps{
@@ -115,8 +123,50 @@ pipeline {
 
     stage("Build Image and Push to Remote Regisrty"){
       steps {
-        buildAndPushImage(env.REPO_CREDS_ID)
-       }
+        script{
+          if(env.AWS_REGION){
+            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'jenkins-ecr-pusher-creds' ]]){
+              sh '''
+              set -euox pipefail
+
+              export DOCKER_CONFIG="$(mktemp -d)"
+
+              cleanup(){
+                rc=$?
+                rm -rf "$DOCKER_CONFIG"
+                exit "$rc"
+              }
+
+              trap cleanup EXIT INT TERM HUP
+
+              set +x
+
+              echo "$(aws sts get-caller-identity)"
+              PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
+
+              AUTH=$(printf 'AWS:%s' $PASSWORD | base64 | tr -d '\\n')
+
+              jq -n \
+                --arg auth "$AUTH" \
+                --arg registry "$REGISTRY_DOCKER_CONFIG" \
+                '{auths: {($registry): {auth: $auth}}}' \
+              > "$DOCKER_CONFIG/config.json"
+
+              unset AUTH
+              set -x
+
+              buildctl --addr $BUILDKIT_HOST build \
+                --frontend dockerfile.v0 \
+                --local context=. \
+                --local dockerfile="$DOCKERFILE_PATH" \
+                --output type=image,name="$IMAGE_NAME",push=true
+            '''.stripIndent()
+            }
+          } else {
+            buildAndPushImage(env.REPO_CREDS_ID)
+          }
+        }
+        }
     }
 
     stage("Image SBOM - SYFT"){
