@@ -77,6 +77,7 @@ pipeline {
           java -version
           mvn --version
           buildctl --addr $BUILDKIT_HOST debug workers
+          aws --version
         '''
       }
     }
