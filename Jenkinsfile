@@ -21,7 +21,7 @@ pipeline {
     // string(name: "AWS_REGION", defaultValue: "eu-north-1", description:"AWS_REGION")
     choice(
             name: 'AWS_REGION', 
-            choices: [null, 'eu-north-1'], 
+            choices: [null, 'us-east-1', 'eu-north-1'],  //default for non aws // default for aws public ecr (Virginia) // aws private ecr
             description: 'Select which aws region is used if its aws ecr repo to push the image'
         )
     // choice(
@@ -60,8 +60,7 @@ pipeline {
           env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
             ? registryDockerConfigMap["${env.REGISTRY}"] 
             : "${env.REGISTRY}" 
-          echo "AWS_REGION: ${env.AWS_REGION}"
-
+          env.AWS_REGION = "${params.AWS_REGION}"
         }
       }
     }
@@ -125,7 +124,7 @@ pipeline {
       steps {
         script{
           if(env.AWS_REGION){
-            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'jenkins-ecr-pusher-creds' ]]){
+            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){ //jenkins-ecr-pusher-creds
               sh '''
               set -euox pipefail
 
@@ -139,10 +138,18 @@ pipeline {
 
               trap cleanup EXIT INT TERM HUP
 
+
+              echo "$(aws sts get-caller-identity)"
+
               set +x
 
               echo "$(aws sts get-caller-identity)"
-              PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
+
+              if [ "$REGISTRY" == "public.ecr.aws" ]; then 
+                PASSWORD=$(aws ecr-public get-login-password --region 'us-east-1')
+              else
+                PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
+              fi
 
               AUTH=$(printf 'AWS:%s' $PASSWORD | base64 | tr -d '\\n')
 
@@ -169,29 +176,54 @@ pipeline {
         }
     }
 
-    stage("Image SBOM - SYFT"){
+    stage("Image SBOM - SYFT"){ 
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: "$REPO_CREDS_ID",
-          usernameVariable: "DOCKERHUB_USER",
-          passwordVariable: "DOCKERHUB_PASSWORD")]){
-            catchError {
-              sh '''
-                set -eux;
-                export SYFT_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
-                export SYFT_REGISTRY_AUTH_USERNAME="$DOCKERHUB_USER"
-                export SYFT_REGISTRY_AUTH_PASSWORD="$DOCKERHUB_PASSWORD"
+        script {
+          catchError {
+          if(!env.AWS_REGION){
+            withCredentials([usernamePassword(
+              credentialsId: "$REPO_CREDS_ID",
+              usernameVariable: "USER",
+              passwordVariable: "PASSWORD")]){
+                  sh '''
+                    set -eux;
+                    export SYFT_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+                    export SYFT_REGISTRY_AUTH_USERNAME="$USER"
+                    export SYFT_REGISTRY_AUTH_PASSWORD="$PASSWORD"
 
-                syft registry:"$IMAGE_NAME" \
-                  -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
-                  -o spdx-json="$REPORT_DIR/image-sbom.spdx.json" \
+                    syft registry:"$IMAGE_NAME" \
+                      -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
+                      -o spdx-json="$REPORT_DIR/image-sbom.spdx.json" \
+                  '''
+            }
+          } else {
+            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){  
+              sh '''
+              echo "$(aws sts get-caller-identity)"
+
+              if [ "$REGISTRY" == "public.ecr.aws" ]; then 
+                PASSWORD=$(aws ecr-public get-login-password --region 'us-east-1')
+              else
+                PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
+              fi
+
+              set -eux;
+              export SYFT_REGISTRY_AUTH_AUTHORITY="$REGISTRY"
+              export SYFT_REGISTRY_AUTH_USERNAME="AWS"
+              export SYFT_REGISTRY_AUTH_PASSWORD="$PASSWORD"
+
+              syft registry:"$IMAGE_NAME" \
+                -o cyclonedx-json="$REPORT_DIR/image-sbom.cdx.json" \
+                -o spdx-json="$REPORT_DIR/image-sbom.spdx.json" \
               '''
             }
           }
+          }
+         }     
       }
     }
 
-    stage("Image Vulnerability Scan - GRYPE"){
+    stage("Image Vulnerability Scan - GRYPE"){ 
       steps {
         catchError {
           sh '''
@@ -208,6 +240,11 @@ pipeline {
     }
 
     stage("Image Scan - TRIVY"){
+      when {
+        expression {
+          !env.AWS_REGION // but we actually can implement the same for trivy as for syft above
+        }
+      }
       steps {
         trivyImageScan(env.REPO_CREDS_ID)
         trivyImageScan(env.REPO_CREDS_ID, 'gate')
