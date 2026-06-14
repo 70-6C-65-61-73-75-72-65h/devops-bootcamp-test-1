@@ -45,9 +45,7 @@ pipeline {
           mkdir -p "$REPORT_DIR"
           git rev-parse --short=12  HEAD  > .git-sha-short
         ''' 
-        script {
-
-          echo "env.GIT_URL: ${env.GIT_URL}"
+        script { 
           def lastCommitSha = readFile('.git-sha-short')
           env.LAST_COMMIT = "${lastCommitSha}"
           echo "LAST COMMIT: ${env.LAST_COMMIT}"
@@ -63,6 +61,14 @@ pipeline {
             ? registryDockerConfigMap["${env.REGISTRY}"] 
             : "${env.REGISTRY}" 
           env.AWS_REGION = "${params.AWS_REGION}"
+          
+          if(env.GIT_URL == "https://github.com/70-6C-65-61-73-75-72-65h/devops-bootcamp-test-1.git"){
+            env.AWS_REGION = 'eu-north-1'
+            env.REGISTRY = 'public.ecr.aws'
+            env.IMAGE_REPO = 't9g8l3y5/checking-devops'
+            env.REPO_CREDS_ID = 'jenkins-ecr-pusher-creds'
+          }
+           
         }
       }
     }
