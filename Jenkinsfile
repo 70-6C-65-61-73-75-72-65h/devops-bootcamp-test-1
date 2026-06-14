@@ -77,7 +77,7 @@ pipeline {
           }
           if(env.AWS_REGION != 'eu-north-1'){
             error "Stopping pipeline: Condition was met!" 
-          
+          }
         }
       }
     }
