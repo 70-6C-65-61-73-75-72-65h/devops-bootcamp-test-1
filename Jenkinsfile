@@ -67,6 +67,7 @@ pipeline {
           echo "${env.GIT_URL}"
           echo "https://github.com/70-6C-65-61-73-75-72-65h/devops-bootcamp-test-1.git"
 
+
           if(env.GIT_URL == "https://github.com/70-6C-65-61-73-75-72-65h/devops-bootcamp-test-1.git"){
             env.AWS_REGION = 'eu-north-1'
             env.REGISTRY = 'public.ecr.aws'
