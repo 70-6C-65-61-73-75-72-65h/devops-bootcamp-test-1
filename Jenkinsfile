@@ -142,7 +142,6 @@ pipeline {
       steps {
         script{
           if(env.AWS_REGION){
-            
             withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){ //jenkins-ecr-pusher-creds
               sh '''
               set -euox pipefail
