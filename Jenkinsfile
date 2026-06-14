@@ -74,7 +74,7 @@ pipeline {
             env.IMAGE_REPO = 't9g8l3y5/checking-devops'
             env.REPO_CREDS_ID = 'jenkins-ecr-pusher-creds'
           }
-          if(env.REGISTRY != 'public.ecr.aws'){
+          if(env.AWS_REGION != 'eu-north-1'){
             error "Stopping pipeline: Condition was met!" 
           }
         }
