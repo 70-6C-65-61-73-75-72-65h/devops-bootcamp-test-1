@@ -46,6 +46,8 @@ pipeline {
           git rev-parse --short=12  HEAD  > .git-sha-short
         ''' 
         script {
+
+          echo "env.GIT_URL: ${env.GIT_URL}"
           def lastCommitSha = readFile('.git-sha-short')
           env.LAST_COMMIT = "${lastCommitSha}"
           echo "LAST COMMIT: ${env.LAST_COMMIT}"
@@ -146,7 +148,7 @@ pipeline {
 
               echo "$(aws sts get-caller-identity)"
 
-              if [ "$REGISTRY" = "public.ecr.aws" ]; then 
+              if [ "$REGISTRY" = "public.ecr.aws" ]; then
                 PASSWORD=$(aws ecr-public get-login-password --region 'us-east-1')
               else
                 PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
