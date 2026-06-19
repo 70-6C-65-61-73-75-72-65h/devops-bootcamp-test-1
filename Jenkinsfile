@@ -61,19 +61,18 @@ pipeline {
           env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
             ? registryDockerConfigMap["${env.REGISTRY}"] 
             : "${env.REGISTRY}" 
-          env.AWS_REGION = "${params.AWS_REGION}"
+          env.AWS_REGION = "${params.AWS_REGION}" 
 
-          echo "GIT_URL: ${env.GIT_URL}"
-          echo "${env.GIT_URL}"
-          echo "https://github.com/70-6C-65-61-73-75-72-65h/devops-bootcamp-test-1.git"
-
-
-          if(env.GIT_URL == "https://github.com/70-6C-65-61-73-75-72-65h/devops-bootcamp-test-1.git"){
+          if(env.GIT_URL == "https://github.com/70-6C-65-61-73-75-72-65h/devops-bootcamp-test-1.git"){ 
             env.AWS_REGION = 'eu-north-1'
             env.REGISTRY = 'public.ecr.aws'
             env.IMAGE_REPO = 't9g8l3y5/checking-devops'
-            env.REPO_CREDS_ID = 'jenkins-ecr-pusher-creds'
+            // env.REPO_CREDS_ID = 'jenkins-ecr-pusher-creds'
+            env.REPO_CREDS_ID = 'aws-oidc-ecr-public'
             env.IMAGE_NAME = "${env.REGISTRY}/${env.IMAGE_REPO}:${params.IMAGE_TAG}"
+            env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
+            ? registryDockerConfigMap["${env.REGISTRY}"] 
+            : "${env.REGISTRY}"  
           }
           if(env.AWS_REGION != 'eu-north-1'){
             error "Stopping pipeline: Condition was met!" 
@@ -142,7 +141,13 @@ pipeline {
       steps {
         script{
           if(env.AWS_REGION){
-            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){ //jenkins-ecr-pusher-creds
+            // withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){ //jenkins-ecr-pusher-creds
+            withCredentials([
+                  file(
+                      credentialsId: "$REPO_CREDS_ID",
+                      variable: 'AWS_WEB_IDENTITY_TOKEN_FILE'
+                  )
+              ]) {
               sh '''
               set -euox pipefail
 
@@ -215,7 +220,13 @@ pipeline {
                   '''
             }
           } else {
-            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){  
+            // withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "$REPO_CREDS_ID" ]]){  
+              withCredentials([
+                  file(
+                      credentialsId: "$REPO_CREDS_ID",
+                      variable: 'AWS_WEB_IDENTITY_TOKEN_FILE'
+                  )
+              ]) {
               sh '''
               echo "$(aws sts get-caller-identity)"
 
