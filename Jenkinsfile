@@ -68,7 +68,7 @@ pipeline {
             env.REGISTRY = 'public.ecr.aws'
             env.IMAGE_REPO = 't9g8l3y5/checking-devops'
             // env.REPO_CREDS_ID = 'jenkins-ecr-pusher-creds'
-            env.REPO_CREDS_ID = 'aws-oidc-ecr-public'
+            env.REPO_CREDS_ID = 'aws-oidc-token-file'
             env.IMAGE_NAME = "${env.REGISTRY}/${env.IMAGE_REPO}:${params.IMAGE_TAG}"
             env.REGISTRY_DOCKER_CONFIG=registryDockerConfigMap["${env.REGISTRY}"]  
             ? registryDockerConfigMap["${env.REGISTRY}"] 
@@ -147,7 +147,14 @@ pipeline {
                       credentialsId: "$REPO_CREDS_ID",
                       variable: 'AWS_WEB_IDENTITY_TOKEN_FILE'
                   )
-              ]) {
+              ]) { 
+
+              echo "IMAGE_NAME: ${env.IMAGE_NAME}"
+              echo "IMAGE_REPO: ${env.IMAGE_REPO}"
+              echo "REGISTRY: ${env.REGISTRY}"
+              echo "REPO_CREDS_ID: ${env.REPO_CREDS_ID}"
+              echo "REGISTRY_DOCKER_CONFIG: ${env.REGISTRY_DOCKER_CONFIG}"
+
               sh '''
               set -euox pipefail
 
