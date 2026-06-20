@@ -148,8 +148,7 @@ pipeline {
                       variable: 'AWS_WEB_IDENTITY_TOKEN_FILE'
                   )
               ]) { 
-              export AWS_ROLE_ARN="arn:aws:iam::619336173341:role/JenkinsECRPublicPushRole"
-              
+                            
               echo "IMAGE_NAME: ${env.IMAGE_NAME}"
               echo "IMAGE_REPO: ${env.IMAGE_REPO}"
               echo "REGISTRY: ${env.REGISTRY}"
@@ -158,7 +157,7 @@ pipeline {
 
               sh '''
               set -euox pipefail
-
+              export AWS_ROLE_ARN="arn:aws:iam::619336173341:role/JenkinsECRPublicPushRole"
               export DOCKER_CONFIG="$(mktemp -d)"
 
               cleanup(){
