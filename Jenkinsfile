@@ -144,6 +144,15 @@ pipeline {
         sh '''
           set -eux;
           mvn -B -ntp clean verify
+          echo "COMMIT: $(git rev-parse HEAD)"
+
+          # Исходник
+          grep -n -A3 '@GetMapping("/health")' \
+            src/main/java/com/example/Application.java
+
+          # Скомпилированный класс
+          javap -v -p target/classes/com/example/Application.class \
+            | grep -E 'GetMapping|/health|RestController'
         '''
       }
       post {
