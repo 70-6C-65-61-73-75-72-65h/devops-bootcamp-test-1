@@ -56,6 +56,7 @@ pipeline {
     stage("Checkout and Init"){
       steps {
         checkout scm
+        echo "env.GIT_URL: ${env.GIT_URL}"
         sh '''
           set -eux
           mkdir -p "$REPORT_DIR"
