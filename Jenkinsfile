@@ -2,6 +2,22 @@
 
 def registryDockerConfigMap = ['docker.io': 'https://index.docker.io/v1/']
 
+// if we dont want to add it in UI jenkins master to project setup or globally available jsl
+// library identifier: 'jenkins-shared-library-1@master', retriever: modernSCM
+//   [$class: 'GitSCMSource', remote: 'git@github.com:70-6C-65-61-73-75-72-65h/jenkins-shared-library-1.git', credentialsID: 'jenkins-shared-library-1']
+// )
+
+  // git url: 'git@gitlab:max/p1.git',
+//                   branch: 'jenkins-jobs-1',
+//                   credentialsId: 'java-maven-app-gitlab'
+//               sh '''mvn build-helper:parse-version versions:set '-DnewVersion=${parsedVersion.majorVersion}.${parsedVersion.minorVersion}.${parsedVersion.nextIncrementalVersion}' versions:commit'''
+//               script {
+//               def pomVersion = sh(
+//                   script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
+//                   returnStdout: true
+//               ).trim()
+//               echo "pomVersion: ${pomVersion}"
+
 pipeline {
   agent {
     label 'buildkit'

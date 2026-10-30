@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 
 @SpringBootApplication
+@RestController
 public class Application {
 
     public static void main(String[] args)
@@ -21,6 +22,7 @@ public class Application {
         log.info("Java app started");
     }
 
+    @GetMapping("/health")
     public String getStatus() {
         return "OK";
     }
